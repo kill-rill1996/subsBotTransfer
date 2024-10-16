@@ -1,9 +1,5 @@
-from typing import List
-
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
-from database import tables
 
 
 def buy_subscribe_keyboard() -> InlineKeyboardBuilder:
@@ -42,6 +38,8 @@ def payment_confirm_keyboard(period: str) -> InlineKeyboardBuilder:
         InlineKeyboardButton(
             text="Оплатил", callback_data=f"paid_{period}"),
     )
+
+    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data="back_choosePeriod"))
     return keyboard
 
 

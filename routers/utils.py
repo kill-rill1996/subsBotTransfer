@@ -27,26 +27,23 @@ async def generate_invite_link(bot: aiogram.Bot, name: str) -> str:
     return invite_link.invite_link
 
 
-async def create_invite_link(tg_id: str, bot: aiogram.Bot) -> str:
-    user = db.get_user_by_tg_id(tg_id)
+def create_or_update_operation_and_subscribe(tg_id: str, period: str) -> (tables.Subscription, bool):
+    need_link = True
 
-    link_name = user.username if user.username else user.first_name
-    invite_link = await generate_invite_link(bot, link_name)
-    return invite_link
-
-
-def create_operation_and_subscribe(tg_id: str, period: str) -> tables.Subscription:
     if period == "1":
-        months = 1
-        amount = 100
+        months = settings.months_1
+        amount = settings.amount_1
     elif period == "3":
-        months = 3
-        amount = 300
+        months = settings.months_3
+        amount = settings.amount_3
     else:
-        months = -1
-        amount = 1000
+        months = settings.months_inf
+        amount = settings.amount_inf
 
     user = db.get_user_by_tg_id(tg_id)
+
+    # получение пользователя с подпиской подписки
+    user_with_sub = db.get_user_subscription_by_tg_id(tg_id)
 
     # создание operations
     operation_model = OperationCreate(
@@ -56,26 +53,25 @@ def create_operation_and_subscribe(tg_id: str, period: str) -> tables.Subscripti
     )
     db.create_operation(operation_model)
 
-    # создание subscription
-    user_with_sub = db.get_user_subscription_by_tg_id(tg_id)
+    if not user_with_sub.subscription:
+        # НОВАЯ ПОДПИСКА
+        if months == -1:
+            is_infinity = True
+            expire_date = datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(days=30 * 100)
+        else:
+            is_infinity = False
+            expire_date = datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(days=30 * months)
 
-    # получение ссылки на подписку
-    # name = message.from_user.username if message.from_user.username else message.from_user.first_name
-    # invite_link = await generate_invite_link(bot, name)
-
-    # продление подписки
-    if user_with_sub.subscription:
-        subscription = db.update_subscription_expire_date(tg_id, months)    # TODO исправить чтобы subcription
-
-    # создание подписки
-    else:
-        # создание подписки
-        expire_date = datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(days=30 * months)
         subscription_model = SubscriptionCreate(
             expire_date=expire_date,
             is_active=True,
-            user_id=user.id
+            user_id=user.id,
+            is_infinity=is_infinity
         )
         subscription = db.create_subscription(subscription_model)
 
-    return subscription
+    else:
+        # ПРОДЛЕНИЕ ПОДПИСКИ
+        subscription, need_link = db.update_subscription_expire_date(tg_id, months)
+
+    return subscription, need_link

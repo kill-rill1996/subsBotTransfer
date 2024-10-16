@@ -5,7 +5,7 @@ from sqlalchemy.orm import joinedload
 
 from database import tables
 from .database import Session
-from .models import UserCreate, OperationCreate, User, SubscriptionCreate
+from .models import UserCreate, OperationCreate, SubscriptionCreate
 
 
 # USER
@@ -99,23 +99,37 @@ def get_subscription_by_user_id(user_id: int) -> tables.Subscription:
         return subscription
 
 
-def update_subscription_expire_date(tg_id: str, months: int) -> datetime.date:
+def update_subscription_expire_date(tg_id: str, months: int) -> (datetime.date, bool):
     """Обновление срока подписки"""
+    need_link = False
     user_with_sub = get_user_subscription_by_tg_id(tg_id)
     current_expire_date = user_with_sub.subscription[0].expire_date
 
     # если подписка уже кончилась
     if current_expire_date.replace(tzinfo=pytz.timezone('Europe/Moscow')) < datetime.now(pytz.timezone('Europe/Moscow')):
         new_expire_date = datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(days=30 * months)
+        need_link = True
     # если подписка еще активна
     else:
         new_expire_date = current_expire_date + timedelta(days=30 * months)
+
+    # проверка покупки бессрочной подписки
+    if months == -1:
+        is_infinity = True
+        new_expire_date = datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(days=30 * 100)
+    elif months != -1 and user_with_sub.subscription[0].is_infinity:
+        is_infinity = True
+        new_expire_date = datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(days=30 * 100)
+    else:
+        is_infinity = False
 
     # продление
     with Session() as session:
         subscription = session.query(tables.Subscription).filter_by(user_id=user_with_sub.id).first()
         subscription.expire_date = new_expire_date
         subscription.is_active = True
+        subscription.is_infinity = is_infinity
         session.commit()
+        session.refresh(subscription)
 
-    return new_expire_date
+        return subscription, need_link

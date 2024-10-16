@@ -24,3 +24,4 @@ class SubscriptionCreate(BaseModel):
     user_id: int
     expire_date: datetime
     is_active: bool
+    is_infinity: bool

@@ -12,8 +12,8 @@ async def run_every_day_check(bot: aiogram.Bot):
     users = db.get_all_users()
     users_with_subscription = [user for user in users if user.subscription]
 
-    # проверяем активных пользователей
-    for user in [user for user in users_with_subscription if user.subscription[0].is_active]:
+    # проверяем активных пользователей с ограниченной подпиской
+    for user in [user for user in users_with_subscription if user.subscription[0].is_active and not user.subscription[0].is_infinity]:
         # проверяем если истек срок подписки
         if is_sub_expire(user):
             # меняем статус подписки

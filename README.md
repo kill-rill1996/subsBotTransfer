@@ -1,2 +1,1 @@
-# subscribersBot
 # subsBotTransfer
