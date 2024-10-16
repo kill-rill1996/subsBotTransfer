@@ -5,6 +5,7 @@ from aiogram import Router, types, F
 
 from middleware import CheckIsAdminMiddleware, CheckPrivateMessageMiddleware
 from settings import settings
+from database import service as db
 import routers.keyboards as kb
 from routers.utils import create_or_update_operation_and_subscribe, generate_invite_link
 
@@ -52,7 +53,7 @@ async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot
             await bot.send_message(payer_tg_id, user_message, reply_markup=kb.invite_link_keyboard(invite_link).as_markup())
 
             # сообщение админу
-            admin_message = "Оплата подтверждена ✅\nСсылка на вступление направлена пользователю"
+            admin_message = f"Оплата подтверждена ✅\nСсылка на вступление направлена пользователю"
 
         # без ссылки (в случае продления активной подписки)
         else:
@@ -81,5 +82,6 @@ async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot
         admin_message = "Оплата отклонена ❌\nОповещение направлено пользователю"
 
     # оповещение админа
-    await callback.message.edit_text(admin_message)
+    await callback.message.edit_text(callback.message.text)
+    await callback.message.answer(admin_message)
 

@@ -52,7 +52,7 @@ def get_invoice_message(period: str) -> str:
         message += "<b>неограниченный период</b> "
         amount = f"<b>{settings.amount_inf} р.</b>"
 
-    message += f"необходимо выполнить перевод по ссылке \n{settings.payment_link}\nна сумму {amount}\n\n" \
+    message += f"необходимо выполнить оплату по ссылке: \n\n{settings.payment_link}\n\nна сумму {amount}\n\n" \
                f"После выполнения оплаты нажмите кнопку <b>\"Оплатил\"</b>"
 
     return message
@@ -80,7 +80,7 @@ def message_for_admin(user: tables.User, period: str) -> str:
         text = "<b>неограниченный период</b> "
         amount = f"<b>{settings.amount_inf} р.</b>"
 
-    message += f"\nОплатил подписку на {text} стоимостью {amount} \n\nПроверьте или отклоните оплату"
+    message += f"\nОплатил подписку на {text} стоимостью {amount} \n\nПодтвердите или отклоните оплату"
     return message
 
 
