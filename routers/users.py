@@ -5,6 +5,7 @@ from middleware import CheckPrivateMessageMiddleware
 from database import service as db
 
 from database.models import UserCreate
+from .payments import create_payment_invoice
 from .utils import is_user_exists
 from routers import messages as ms, keyboards as kb
 from settings import settings
@@ -14,7 +15,7 @@ router.message.middleware.register(CheckPrivateMessageMiddleware())
 
 
 # BLOCK OTHER TYPES
-@router.message(~F.content_type.in_({'text'}))
+@router.message(~F.content_type.in_({'text', 'pre_checkout_query', 'successful_payment'}))
 async def block_types_handler(message: types.Message) -> None:
     await message.answer("Некорректный тип данных в сообщении (принимается только текст)\n\n"
                          "Чтобы посмотреть инструкцию по использованию бота выберите команду /help во вкладке \"Меню\" "
@@ -54,7 +55,30 @@ async def buy_menu(callback: types.CallbackQuery) -> None:
     await callback.message.edit_text("Выберите период подписки 🗓", reply_markup=kb.payment_period_subscribe().as_markup())
 
 
-@router.callback_query(lambda callback: callback.data.split('_')[0] == "subPeriod")
+@router.callback_query(lambda callback: callback.data.split("_")[0] == "subPeriod")
+@router.callback_query(lambda callback: callback.data.split("_")[0] == "back-choosePayMethod")
+async def choose_buy_method(callback: types.CallbackQuery) -> None:
+    """Меню выбора способа оплаты подписки"""
+    period = callback.data.split("_")[1]
+    await callback.message.edit_text("Выберите способ оплаты", reply_markup=kb.payment_methods(period).as_markup())
+
+
+# ОПЛАТА КАРТОЙ
+@router.callback_query(lambda callback: callback.data.split('_')[0] == "pay-method-card")
+async def create_invoice_handler(callback: types.CallbackQuery) -> None:
+    """Формирование заказа для оплаты"""
+    period = callback.data.split("_")[1]
+    payment_invoice = create_payment_invoice(period)
+
+    await callback.message.answer_invoice(**payment_invoice)
+    await callback.message.delete()
+
+
+
+
+
+# ОПЛАТА ПО ССЫЛКЕ
+@router.callback_query(lambda callback: callback.data.split('_')[0] == "pay-method-link")
 async def create_invoice_handler(callback: types.CallbackQuery) -> None:
     """Формирование заказа для оплаты"""
     sub_period = callback.data.split("_")[1]
@@ -86,7 +110,7 @@ async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot
 
 @router.callback_query(lambda callback: callback.data == "sub_status")
 async def check_sub_status(callback: types.CallbackQuery):
-    """Проверка свой подписки"""
+    """Проверка своей подписки"""
     tg_id = callback.from_user.id
     user = db.get_user_subscription_by_tg_id(str(tg_id))
     msg = ms.subscription_info(user)

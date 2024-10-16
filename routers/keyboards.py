@@ -14,6 +14,20 @@ def buy_subscribe_keyboard() -> InlineKeyboardBuilder:
     return keyboard
 
 
+def payment_methods(period: str) -> InlineKeyboardBuilder:
+    """Клавиатура выбора способа оплаты"""
+    keyboard = InlineKeyboardBuilder()
+    keyboard.row(
+        InlineKeyboardButton(
+            text="Картой (для СНГ)", callback_data=f"pay-method-card_{period}"),
+        InlineKeyboardButton(
+            text="По ссылке", callback_data=f"pay-method-link_{period}"),
+    )
+    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data=f"back-choosePayMethod_{period}"))
+
+    return keyboard
+
+
 def payment_period_subscribe() -> InlineKeyboardBuilder:
     """Клавиатура для выбора длительности покупаемой подписки"""
 
@@ -39,7 +53,7 @@ def payment_confirm_keyboard(period: str) -> InlineKeyboardBuilder:
             text="Оплатил", callback_data=f"paid_{period}"),
     )
 
-    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data="back_choosePeriod"))
+    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data="back_choosePayMethod"))
     return keyboard
 
 
