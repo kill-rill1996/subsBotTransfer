@@ -27,18 +27,8 @@ async def generate_invite_link(bot: aiogram.Bot, name: str) -> str:
     return invite_link.invite_link
 
 
-def create_or_update_operation_and_subscribe(tg_id: str, period: str) -> (tables.Subscription, bool):
+def create_or_update_operation_and_subscribe(tg_id: str, months: int, amount: int) -> (tables.Subscription, bool):
     need_link = True
-
-    if period == "1":
-        months = settings.months_1
-        amount = settings.amount_1
-    elif period == "3":
-        months = settings.months_3
-        amount = settings.amount_3
-    else:
-        months = settings.months_inf
-        amount = settings.amount_inf
 
     user = db.get_user_by_tg_id(tg_id)
 

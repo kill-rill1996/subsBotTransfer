@@ -23,7 +23,7 @@ def payment_methods(period: str) -> InlineKeyboardBuilder:
         InlineKeyboardButton(
             text="По ссылке", callback_data=f"pay-method-link_{period}"),
     )
-    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data=f"back-choosePayMethod_{period}"))
+    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data=f"back-choosePeriod"))
 
     return keyboard
 
@@ -53,7 +53,7 @@ def payment_confirm_keyboard(period: str) -> InlineKeyboardBuilder:
             text="Оплатил", callback_data=f"paid_{period}"),
     )
 
-    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data="back_choosePayMethod"))
+    keyboard.row(InlineKeyboardButton(text="<< Назад", callback_data=f"back-choosePayMethod_{period}"))
     return keyboard
 
 

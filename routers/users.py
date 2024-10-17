@@ -1,12 +1,14 @@
+from datetime import datetime
+
 import aiogram
-from aiogram import Router, types, F
+from aiogram import Router, types, F, Bot
 from aiogram.filters import Command
 from middleware import CheckPrivateMessageMiddleware
 from database import service as db
 
 from database.models import UserCreate
 from .payments import create_payment_invoice
-from .utils import is_user_exists
+from .utils import is_user_exists, create_or_update_operation_and_subscribe, generate_invite_link
 from routers import messages as ms, keyboards as kb
 from settings import settings
 
@@ -49,7 +51,7 @@ async def main_menu(message: types.Message | types.CallbackQuery) -> None:
 
 
 @router.callback_query(lambda callback: callback.data == "buy_sub")
-@router.callback_query(lambda callback: callback.data == "back_choosePeriod")
+@router.callback_query(lambda callback: callback.data == "back-choosePeriod")
 async def buy_menu(callback: types.CallbackQuery) -> None:
     """Меню выбора периода подписки"""
     await callback.message.edit_text("Выберите период подписки 🗓", reply_markup=kb.payment_period_subscribe().as_markup())
@@ -74,12 +76,60 @@ async def create_invoice_handler(callback: types.CallbackQuery) -> None:
     await callback.message.delete()
 
 
+@router.pre_checkout_query()
+async def pre_checkout_query(pre_checkout_query: types.PreCheckoutQuery, bot: Bot):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
+
+@router.message(F.successful_payment)
+async def successful_payment(message: types.Message, bot: aiogram.Bot):
+    """В случае успешной оплаты по карте"""
+    payer_tg_id = str(message.from_user.id)
+    amount = int(message.successful_payment.invoice_payload)
+    if amount == settings.amount_1:
+        months = settings.months_1
+    elif amount == settings.amount_3:
+        months = settings.months_3
+    else:
+        months = settings.months_inf
+
+    # создание и продление подписки
+    subscription, need_link = create_or_update_operation_and_subscribe(payer_tg_id, months, amount)
+
+    if need_link:
+        # создание invite ссылки
+        name = message.from_user.username if message.from_user.username else message.from_user.first_name
+        invite_link = await generate_invite_link(bot, name)
+
+        # для бессрочной подписки
+        if subscription.is_infinity:
+            user_message = f"Оплата прошла успешно ✅\nПодписка активна на <b>неограниченный период</b>️ ♾️\n\n" \
+                           "<b>Ссылка на вступление в канал активна 1 день и может быть использована только 1 раз</b>"
+        # для обычной подписки
+        else:
+            user_message = f"Оплата прошла успешно ✅\nПодписка активна до <b>{datetime.strftime(subscription.expire_date, '%d.%m.%Y')}</b> 🗓️\n\n" \
+                           "<b>Ссылка на вступление в канал активна 1 день и может быть использована только 1 раз</b>"
+
+        # отправка ссылки пользователю
+        await message.answer(user_message, reply_markup=kb.invite_link_keyboard(invite_link).as_markup())
+
+    # без ссылки (в случае продления активной подписки)
+    else:
+        # для бессрочной подписки
+        if subscription.is_infinity:
+            user_message = f"Оплата прошла успешно ✅\nПодписка активна на <b>неограниченный период</b> ♾️️"
+
+        # для обычной подписки
+        else:
+            user_message = f"Оплата прошла успешно ✅\nПодписка активна до <b>{datetime.strftime(subscription.expire_date, '%d.%m.%Y')}</b> 🗓️"
+
+        # отправка сообщения пользователю без ссылки (т.к. его подписка еще активна и он в канале)
+        await message.answer(user_message)
 
 
 # ОПЛАТА ПО ССЫЛКЕ
 @router.callback_query(lambda callback: callback.data.split('_')[0] == "pay-method-link")
-async def create_invoice_handler(callback: types.CallbackQuery) -> None:
+async def create_invoice_handler_link(callback: types.CallbackQuery) -> None:
     """Формирование заказа для оплаты"""
     sub_period = callback.data.split("_")[1]
     invoice_message = ms.get_invoice_message(sub_period)
@@ -88,7 +138,7 @@ async def create_invoice_handler(callback: types.CallbackQuery) -> None:
 
 
 @router.callback_query(lambda callback: callback.data.split('_')[0] == "paid")
-async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot) -> None:
+async def waiting_message_handler(callback: types.CallbackQuery, bot: aiogram.Bot) -> None:
     """Ожидание подтверждения от админа"""
     # убираем кнопки в предыдущем сообщении
     period = callback.data.split("_")[1]

@@ -15,7 +15,7 @@ router.message.middleware.register(CheckIsAdminMiddleware(settings.admins))
 
 
 # BLOCK OTHER TYPES
-@router.message(~F.content_type.in_({'text'}))
+@router.message(~F.content_type.in_({'text', 'pre_checkout_query', 'successful_payment'}))
 async def block_types_handler(message: types.Message) -> None:
     await message.answer("Некорректный тип данных в сообщении (принимается только текст)\n\n"
                          "Чтобы посмотреть инструкцию по использованию бота выберите команду /help во вкладке \"Меню\" "
@@ -29,10 +29,20 @@ async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot
     period = callback.data.split("_")[3]
     payment_status = callback.data.split("_")[1]
 
+    if period == "1":
+        months = settings.months_1
+        amount = settings.amount_1
+    elif period == "3":
+        months = settings.months_3
+        amount = settings.amount_3
+    else:
+        months = settings.months_inf
+        amount = settings.amount_inf
+
     # ПОДТВЕРЖДЕНИЕ ОПЛАТЫ
     if payment_status == "ok":
         # создание и продление подписки
-        subscription, need_link = create_or_update_operation_and_subscribe(payer_tg_id, period)
+        subscription, need_link = create_or_update_operation_and_subscribe(payer_tg_id, months, amount)
 
         # создание ссылки (в случае новой подписки или продления истекшей подписки)
         if need_link:
@@ -42,7 +52,7 @@ async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot
 
             # для бессрочной подписки
             if subscription.is_infinity:
-                user_message = f"Оплата прошла успешно ✅\nПодписка активна на <b>неограниченный срок</b>️\n\n" \
+                user_message = f"Оплата прошла успешно ✅\nПодписка активна на <b>неограниченный период</b>️ ♾️\n\n" \
                                "<b>Ссылка на вступление в канал активна 1 день и может быть использована только 1 раз</b>"
             # для обычной подписки
             else:
@@ -59,7 +69,7 @@ async def create_invoice_handler(callback: types.CallbackQuery, bot: aiogram.Bot
         else:
             # для бессрочной подписки
             if subscription.is_infinity:
-                user_message = f"Оплата прошла успешно ✅\nПодписка активна на <b>неограниченный срок</b>️"
+                user_message = f"Оплата прошла успешно ✅\nПодписка активна на <b>неограниченный период</b>️ ♾️"
 
             # для обычной подписки
             else:
